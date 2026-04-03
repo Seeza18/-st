@@ -791,7 +791,9 @@ function setupListeners() {
 
 jQuery(async function () {
     async function addExtensionControls() {
-        const settingsHtml = await renderExtensionTemplateAsync('custom-summarizer', 'settings', { defaultSettings });
+        const currentScriptUrl = import.meta.url;
+        const extensionFolderPath = currentScriptUrl.substring(currentScriptUrl.indexOf('/extensions/') + 12, currentScriptUrl.lastIndexOf('/'));
+        const settingsHtml = await renderExtensionTemplateAsync(extensionFolderPath, 'settings', { defaultSettings });
         $('#summarize_container').append(settingsHtml);
         setupListeners();
         $('#cs_extensionPopoutButton').off('click').on('click', function (e) {
