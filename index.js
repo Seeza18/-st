@@ -1,5 +1,5 @@
-import { getStringHash, debounce, waitUntilCondition, extractAllWords, isTrueBoolean } from '/scripts/utils.js';
-import { getContext, extension_settings, renderExtensionTemplateAsync } from '/scripts/extensions.js';
+import { getStringHash, debounce, waitUntilCondition, extractAllWords, isTrueBoolean } from '../../utils.js';
+import { getContext, extension_settings, renderExtensionTemplateAsync } from '../../extensions.js';
 import {
     activateSendButtons,
     deactivateSendButtons,
@@ -17,19 +17,19 @@ import {
     setExtensionPrompt,
     streamingProcessor,
     animation_easing,
-} from '/script.js';
-import { is_group_generating, selected_group } from '/scripts/group-chats.js';
-import { loadMovingUIState, power_user } from '/scripts/power-user.js';
-import { dragElement } from '/scripts/RossAscends-mods.js';
-import { getTextTokens, getTokenCountAsync, tokenizers } from '/scripts/tokenizers.js';
-import { debounce_timeout } from '/scripts/constants.js';
-import { SlashCommandParser } from '/scripts/slash-commands/SlashCommandParser.js';
-import { SlashCommand } from '/scripts/slash-commands/SlashCommand.js';
-import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from '/scripts/slash-commands/SlashCommandArgument.js';
-import { macros, MacroCategory } from '/scripts/macros/macro-system.js';
-import { countWebLlmTokens, generateWebLlmChatPrompt, getWebLlmContextSize, isWebLlmSupported, ConnectionManagerRequestService } from '/scripts/extensions/shared.js';
-import { commonEnumProviders } from '/scripts/slash-commands/SlashCommandCommonEnumsProvider.js';
-import { removeReasoningFromString } from '/scripts/reasoning.js';
+} from '../../../script.js';
+import { is_group_generating, selected_group } from '../../group-chats.js';
+import { loadMovingUIState, power_user } from '../../power-user.js';
+import { dragElement } from '../../RossAscends-mods.js';
+import { getTextTokens, getTokenCountAsync, tokenizers } from '../../tokenizers.js';
+import { debounce_timeout } from '../../constants.js';
+import { SlashCommandParser } from '../../slash-commands/SlashCommandParser.js';
+import { SlashCommand } from '../../slash-commands/SlashCommand.js';
+import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from '../../slash-commands/SlashCommandArgument.js';
+import { macros, MacroCategory } from '../../macros/macro-system.js';
+import { countWebLlmTokens, generateWebLlmChatPrompt, getWebLlmContextSize, isWebLlmSupported, ConnectionManagerRequestService } from '../shared.js';
+import { commonEnumProviders } from '../../slash-commands/SlashCommandCommonEnumsProvider.js';
+import { removeReasoningFromString } from '../../reasoning.js';
 import { MacrosParser } from '/scripts/macros.js';
 
 const MODULE_NAME = '2_custom_summarizer';
@@ -791,8 +791,7 @@ function setupListeners() {
 
 jQuery(async function () {
     async function addExtensionControls() {
-        const currentScriptUrl = import.meta.url;
-        const extensionFolderPath = currentScriptUrl.substring(currentScriptUrl.indexOf('/extensions/') + 12, currentScriptUrl.lastIndexOf('/'));
+        const extensionFolderPath = import.meta.url.replace(/\/index\.js$/, '').replace(/.*\/scripts\/extensions\//, '');
         const settingsHtml = await renderExtensionTemplateAsync(extensionFolderPath, 'settings', { defaultSettings });
         $('#summarize_container').append(settingsHtml);
         setupListeners();
