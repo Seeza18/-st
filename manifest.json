@@ -1,0 +1,13 @@
+{
+    "display_name": "Summarize V.2",
+    "loading_order": 10,
+    "requires": [],
+    "optional": [
+        "summarize"
+    ],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Custom",
+    "version": "1.0.0",
+    "homePage": "https://github.com/SillyTavern/SillyTavern"
+}

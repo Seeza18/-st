@@ -1,0 +1,55 @@
+#cs_settings {
+    display: flex;
+    flex-direction: column;
+}
+
+#cs_contents {
+    field-sizing: content;
+    max-height: 50dvh;
+}
+
+#cs_restore {
+    width: max-content;
+}
+
+label[for="cs_frozen"],
+label[for="cs_skipWIAN"] {
+    display: flex;
+    align-items: center;
+    margin: 0 !important;
+}
+
+label[for="cs_frozen"] input {
+    margin-right: 10px;
+}
+
+.cs_contents_controls {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.cs_disabled_hint {
+    margin-left: 2px;
+}
+
+#cs_settingsBlock {
+    display: flex;
+    flex-direction: column;
+    row-gap: 5px;
+}
+
+#cs_extensionPopout {
+    display: flex;
+    flex-direction: column;
+    padding-top: 25px;
+}
+
+#cs_connection_profile_block {
+    display: flex;
+    flex-direction: column;
+    row-gap: 4px;
+    margin-top: 6px;
+    margin-bottom: 6px;
+}
