@@ -1,68 +1,89 @@
 # Summarize V.2 for SillyTavern
 
-A drop-in upgrade to SillyTavern's built-in Summarize extension. Fixes the core problem where the original summarizer strips all jailbreaks and system prompts before generating — causing summaries that ignore your character's tone, language rules, and roleplay style.
+Summarize V.2 is a replacement summary panel for SillyTavern. It is built for roleplay chats where the default summarizer does not follow the same prompt stack, connection profile, language rules, or formatting style as the main chat.
 
-## What's Different
+The goal is simple: press summarize and get a usable current summary, without manually pasting a summary prompt into the RP chat.
 
-The built-in summarizer uses `generateQuietPrompt()` internally, which deliberately removes all system prompts and jailbreaks before sending to the API. This extension replaces that with `generateRaw()` + Connection Profile support, so the AI summarizes using the same jailbreak/prompt setup as your actual chat.
+## What This Update Changes
+
+- Uses a selected Connection Profile for summary generation.
+- When a profile is selected, builds the request through SillyTavern's normal RP chat prompt path first, then sends that payload through the selected profile.
+- Keeps the summary request out of the visible chat. It is added only temporarily while building the request, then removed before anything is saved.
+- Cleans model reasoning / thinking blocks before writing to Current summary.
+- Supports common reasoning wrappers such as `<think>`, `<thought>`, `<analysis>`, `<reasoning>`, `[thinking]`, fenced thinking blocks, `START_PROTOCAL` / `END_PROTOCAL`, and several Gemini/Gemma-style thought labels.
+- Keeps compatibility with the original Summarize memory location, so existing summary memory still works.
 
 ## Features
 
-- **Connection Profile selector** — pick which API + jailbreak to use for summarization, independent of your main chat connection
-- **Output Language control** — force summaries to be written in English regardless of the chat language (useful for Thai, Chinese, Japanese users to save tokens)
-- **Full UI parity** with the original Summarize extension (prompt builder, injection position, depth, role, update frequency, etc.)
-- **Compatible** with `{{summary}}` and `{{cs_summary}}` macros, and stores data in the same `mes.extra.memory` field
+- **Connection Profile support**: choose which SillyTavern Connection Profile should generate summaries.
+- **RP-style prompt building**: profile mode now follows the active chat prompt stack more closely than a raw two-message request.
+- **Current summary cleanup**: strips reasoning/protocol text before saving the summary.
+- **Output language control**: follow the profile prompt or force English output.
+- **Manual and automatic summaries**: trigger summaries manually or update after a set number of messages/words.
+- **Macros**: use `{{cs_summary}}` to insert the latest generated summary.
+- **Original summary storage**: stores summary text in `mes.extra.memory`.
 
 ## Installation
 
-1. Open SillyTavern and go to the **Extensions** panel (puzzle piece icon in the top bar)
-2. Click **Install extension**
-3. Paste this repository's GitHub URL
-4. Click **Install** — SillyTavern will download the files automatically
-5. Refresh your browser tab
+1. Open SillyTavern.
+2. Go to the Extensions panel.
+3. Click Install extension.
+4. Paste this repository URL:
 
-## Usage
+   ```text
+   https://github.com/Seeza18/st-sss.git
+   ```
 
-After installation, a **Summarize V.2** panel will appear in the Extensions sidebar.
+5. Refresh the browser tab.
 
-### Connection Profile
+After installation, open the Extensions sidebar and find **Summarize V.2**.
 
-Select a Connection Profile to use its API and jailbreak/system prompt for summarization. If left empty, falls back to the current main API using `generateRaw()`.
+## Recommended Setup
 
-> This requires the **Connection Manager** extension to be enabled. If it's disabled or no profiles exist, the dropdown is hidden automatically.
+1. Set **Summarize with** to `Main API`.
+2. Select a **Jailbreak / Connection Profile** if you want summaries to use the same provider and prompt style as your RP setup.
+3. Keep **Output Language** on `Follow Jailbreak / Profile`, or choose `Force English` if you want compact English summaries.
+4. Use **Summarize now** to test the current chat.
 
-### Output Language
+## Prompt Builder Modes
 
-| Option | Behavior |
-|---|---|
-| Follow Jailbreak / Profile | Summary language follows whatever your jailbreak/system prompt dictates |
-| Force English | Appends an English-only instruction to the summary prompt, overriding the chat language |
-
-### Prompt Builder (when no Connection Profile selected)
+These modes are used when no Connection Profile is selected.
 
 | Mode | Behavior |
 |---|---|
-| Raw, blocking | Builds its own prompt from unsummarized messages. Blocks chat during generation. |
-| Raw, non-blocking | Same as above, but doesn't block the chat UI. |
-| Classic, blocking | Uses the main prompt builder with the summary request appended. |
+| Raw, blocking | Builds a summary request from unsummarized messages and blocks chat while it runs. |
+| Raw, non-blocking | Same raw summary request, but does not block the chat UI. |
+| Classic, blocking | Uses SillyTavern's normal quiet prompt path. |
 
-### Slash Command
+When a Connection Profile is selected, Summarize V.2 uses the RP-style profile path instead.
 
-```
+## Slash Command
+
+```text
 /csummarize
 /csummarize [text to summarize]
 /csummarize source=main prompt="Summarize briefly" [text]
 /csummarize quiet=true
 ```
 
-### Macro
+## Macro
 
-Use `{{cs_summary}}` in Author's Note, World Info, or prompts to insert the latest generated summary.
+```text
+{{cs_summary}}
+```
 
-> The standard `{{summary}}` macro also works if the original Summarize extension is active alongside this one (both write to the same `mes.extra.memory` field).
+Use this in Author's Note, World Info, or prompts to insert the latest summary generated by Summarize V.2.
 
 ## Notes
 
-- This extension stores summaries in the same location as the original (`mes.extra.memory`), so switching between the two extensions won't lose existing summaries
-- The slash command is `/csummarize` (not `/summarize`) to avoid conflicting with the original extension if both are enabled
-- `MODULE_NAME` is `2_custom_summarizer` so injection doesn't conflict with `1_memory`
+- This extension does not save your Connection Profile, API key, chat logs, character cards, or local settings into the repository.
+- The generated summary is stored in the same `mes.extra.memory` field used by SillyTavern's built-in Summarize extension.
+- The slash command is `/csummarize`, so it does not conflict with SillyTavern's built-in `/summarize`.
+- The internal module name is `2_custom_summarizer`, so its prompt injection does not conflict with the built-in `1_memory` summary prompt.
+
+## Files
+
+- `index.js`: extension logic
+- `settings.html`: settings panel UI
+- `style.css`: small UI styles
+- `manifest.json`: SillyTavern extension metadata

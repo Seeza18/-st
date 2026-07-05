@@ -8,6 +8,7 @@ import {
     event_types,
     extension_prompt_roles,
     extension_prompt_types,
+    Generate,
     generateQuietPrompt,
     is_send_press,
     saveSettingsDebounced,
@@ -70,6 +71,67 @@ const formatMemoryValue = function (value) {
     }
     return `Summary: ${value}`;
 };
+
+const COT_TAGS = [
+    'think',
+    'thinking',
+    'thought',
+    'thoughts',
+    'reasoning',
+    'analysis',
+    'scratchpad',
+    'inner_monologue',
+    'inner-monologue',
+    'internal_monologue',
+    'internal',
+    'private',
+    'private_thoughts',
+    'deliberation',
+    'reflection',
+    'rationale',
+    'cot',
+    'chain_of_thought',
+    'chain-of-thought',
+    'chainofthought',
+    'draft',
+    'work',
+    'notes',
+    'plan',
+    'gemini_thought',
+    'gemma_thought',
+    String.fromCharCode(0x96DE),
+];
+
+const COT_TAG_PATTERN = COT_TAGS.join('|');
+const COT_LABEL_PATTERN = 'think(?:ing)?|thoughts?|reasoning|analysis|scratchpad|inner[-_\\s]?monologue|internal(?:[-_\\s]?monologue)?|private(?:[-_\\s]?thoughts?)?|deliberation|reflection|rationale|cot|chain[-_\\s]?of[-_\\s]?thought|draft|work(?:ing)?|notes?|plan|protocol|gemini(?:[-_\\s]?thought)?|gemma(?:[-_\\s]?thought)?';
+const SUMMARY_MARKER_PATTERN = '(?:current\\s+summary|summary\\s+report|summary|final(?:\\s+answer)?)';
+
+function cleanSummaryOutput(value) {
+    let output = removeReasoningFromString(String(value ?? '')).trim();
+
+    for (const tag of COT_TAGS) {
+        output = output.replace(new RegExp(`<${tag}(?=[\\s>/])[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi'), '').trim();
+        output = output.replace(new RegExp(`\\[${tag}\\][\\s\\S]*?\\[\\/${tag}\\]`, 'gi'), '').trim();
+    }
+
+    output = output.replace(new RegExp('```[^\\n`]*(?:' + COT_LABEL_PATTERN + ')[^\\n`]*\\n[\\s\\S]*?```', 'gi'), '').trim();
+    output = output.replace(/```[\s\S]*?#\s*START_PROTOCAL[\s\S]*?#\s*END_PROTOCAL[\s\S]*?```/gi, '').trim();
+
+    const marker = output.match(new RegExp('(?:^|\\n)\\s*#*\\s*' + SUMMARY_MARKER_PATTERN + '\\s*[:\\uFF1A]?\\s*', 'i'));
+    if (marker && marker.index > 0) {
+        const prefix = output.slice(0, marker.index);
+        if (new RegExp('\\b(?:' + COT_LABEL_PATTERN + '|step[-_\\s]?by[-_\\s]?step)\\b', 'i').test(prefix) || new RegExp(`<\\/?(?:${COT_TAG_PATTERN})(?=[\\s>/])|#\\s*(?:START|END)_PROTOCAL`, 'i').test(prefix)) {
+            output = output.slice(marker.index + marker[0].length).trim();
+        }
+    }
+
+    output = output.replace(new RegExp(`^\\s*(?:<\\/(?:${COT_TAG_PATTERN})\\s*>\\s*)+`, 'i'), '').trim();
+    output = output.replace(new RegExp(`(?:\\s*<\\/(?:${COT_TAG_PATTERN})\\s*>)+\\s*$`, 'i'), '').trim();
+    output = output.replace(new RegExp(`^\\s*<(?:${COT_TAG_PATTERN})(?=[\\s>/])[^>]*>[\\s\\S]*$`, 'i'), '').trim();
+    output = output.replace(new RegExp(`^\\s*\\[(?:${COT_TAG_PATTERN})\\][\\s\\S]*$`, 'i'), '').trim();
+
+    return output.replace(new RegExp('^\\s*#*\\s*' + SUMMARY_MARKER_PATTERN + '\\s*[:\\uFF1A]?\\s*', 'i'), '').trim();
+}
 
 const saveChatDebounced = debounce(() => getContext().saveChat(), debounce_timeout.relaxed);
 
@@ -402,12 +464,12 @@ async function summarizeCallback(args, text) {
             const maxTokens = extension_settings.customSummarizer.overrideResponseLength > 0 ? extension_settings.customSummarizer.overrideResponseLength : null;
             const messages = [{ role: 'system', content: prompt }, { role: 'user', content: text }];
             const result = await ConnectionManagerRequestService.sendRequest(profileId, messages, maxTokens);
-            return removeReasoningFromString(result.content);
+            return cleanSummaryOutput(result.content);
         }
 
         switch (source) {
             case summary_sources.main:
-                return removeReasoningFromString(await generateRaw({
+                return cleanSummaryOutput(await generateRaw({
                     prompt: text,
                     systemPrompt: prompt,
                     responseLength: extension_settings.customSummarizer.overrideResponseLength || null,
@@ -521,7 +583,7 @@ async function summarizeChatWebLLM(context, force) {
 
     try {
         inApiCall = true;
-        const summary = await generateWebLlmChatPrompt(messages, params);
+        const summary = cleanSummaryOutput(await generateWebLlmChatPrompt(messages, params));
         if (!summary) { console.warn('CS: Empty summary received'); return; }
         if (isContextChanged(context)) return;
         setMemoryContext(summary, true, lastUsedIndex);
@@ -529,6 +591,37 @@ async function summarizeChatWebLLM(context, force) {
     } finally {
         inApiCall = false;
     }
+}
+
+async function getRpChatStyleSummaryMessages(context, prompt, skipWIAN) {
+    let generateData = null;
+    const captureGenerateData = (data, dryRun) => {
+        if (dryRun) generateData = data;
+    };
+    const message = {
+        name: context.name1,
+        is_user: true,
+        is_system: false,
+        mes: prompt,
+        extra: {},
+    };
+
+    context.chat.push(message);
+    eventSource.once(event_types.GENERATE_AFTER_DATA, captureGenerateData);
+
+    try {
+        await Generate('normal', {
+            automatic_trigger: true,
+            force_name2: true,
+            skipWIAN: skipWIAN,
+        }, true);
+    } finally {
+        eventSource.removeListener(event_types.GENERATE_AFTER_DATA, captureGenerateData);
+        const index = context.chat.indexOf(message);
+        if (index !== -1) context.chat.splice(index, 1);
+    }
+
+    return Array.isArray(generateData?.prompt) ? generateData.prompt : null;
 }
 
 async function summarizeChatMain(context, force, skipWIAN) {
@@ -555,12 +648,12 @@ async function summarizeChatMain(context, force, skipWIAN) {
             }
 
             const maxTokens = extension_settings.customSummarizer.overrideResponseLength > 0 ? extension_settings.customSummarizer.overrideResponseLength : null;
-            const messages = [
+            const messages = await getRpChatStyleSummaryMessages(context, prompt, skipWIAN) ?? [
                 { role: 'system', content: prompt },
                 { role: 'user', content: rawPrompt },
             ];
             const result = await ConnectionManagerRequestService.sendRequest(profileId, messages, maxTokens);
-            summary = removeReasoningFromString(result.content);
+            summary = cleanSummaryOutput(result.content);
             index = lastUsedIndex;
         } finally {
             inApiCall = false;
@@ -574,7 +667,7 @@ async function summarizeChatMain(context, force, skipWIAN) {
                 skipWIAN: skipWIAN,
                 responseLength: extension_settings.customSummarizer.overrideResponseLength,
             };
-            summary = await generateQuietPrompt(params);
+            summary = cleanSummaryOutput(await generateQuietPrompt(params));
         } finally {
             inApiCall = false;
         }
@@ -597,7 +690,7 @@ async function summarizeChatMain(context, force, skipWIAN) {
                 responseLength: extension_settings.customSummarizer.overrideResponseLength || null,
             };
             const rawSummary = await generateRaw(params);
-            summary = removeReasoningFromString(rawSummary);
+            summary = cleanSummaryOutput(rawSummary);
             index = lastUsedIndex;
         } finally {
             inApiCall = false;
